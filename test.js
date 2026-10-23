@@ -1,0 +1,17 @@
+const assert=require('assert'),{M,TU,DU,RU,lin,pw}=require('./engine.js');
+let n=0;const ok=(name,f)=>{f();n++;console.log('✔',name)};
+const near=(a,b,e=1e-8)=>assert(Math.abs(a-b)<=e*Math.max(1,Math.abs(b)),a+' vs '+b);
+const ts=[5,15,30,60,120];
+ok('SCS: fit from Z data recovers a,b',()=>{const p={a:2,b:.6,c:.7},r=M.scs.fit('Z',ts.map(t=>({t,v:M.scs.Z(t,p)})),p);near(r.a,2);near(r.b,.6)});
+ok('SCS: fit from rate data recovers a,b',()=>{const p={a:2,b:.6,c:.7},r=M.scs.fit('I',ts.map(t=>({t,v:M.scs.I(t,p)})),p);near(r.a,2);near(r.b,.6)});
+ok('Philip: fit from Z and from rate recovers S,A',()=>{const p={S:3,A:.4};for(const[o,f]of[['Z',M.phil.Z],['I',M.phil.I]]){const r=M.phil.fit(o,ts.map(t=>({t,v:f(t,p)})));near(r.S,3);near(r.A,.4)}});
+ok('Kostiakov: fit from Z and from rate recovers k,alpha',()=>{const p={k:1.5,al:.7};for(const[o,f]of[['Z',M.kos.Z],['I',M.kos.I]]){const r=M.kos.fit(o,ts.map(t=>({t,v:f(t,p)})));near(r.k,1.5);near(r.al,.7)}});
+ok('two observations give an exact solution (Philip)',()=>{const p={S:2,A:.5},d=[3,40].map(t=>({t,v:M.phil.I(t,p)})),r=M.phil.fit('I',d);near(r.S,2);near(r.A,.5)});
+ok('i(t) is the derivative of Z(t) for every model',()=>{const P={scs:{a:2,b:.6,c:.7},phil:{S:3,A:.4},kos:{k:1.5,al:.7}};for(const k in M){const h=1e-5,t=17,d=(M[k].Z(t+h,P[k])-M[k].Z(t-h,P[k]))/(2*h);near(d,M[k].I(t,P[k]),1e-6)}});
+ok('known values: Kostiakov Z(10)=k*10^a',()=>near(M.kos.Z(10,{k:.62,al:.58}),.62*10**.58));
+ok('invalid data: non-positive values throw e_pos',()=>assert.throws(()=>M.kos.fit('Z',[{t:5,v:-1},{t:10,v:2}]),/e_pos/));
+ok('invalid data: identical times throw e_det',()=>assert.throws(()=>M.phil.fit('Z',[{t:5,v:1},{t:5,v:2}]),/e_det/));
+ok('boundary: very small t stays finite for Kostiakov and Philip Z',()=>{assert(isFinite(M.kos.Z(1e-9,{k:1,al:.5})));assert(isFinite(M.phil.Z(1e-9,{S:1,A:1})))});
+ok('units: factors are consistent',()=>{near(RU['m/s'],3.6e6);near(RU['cm/h'],10);near(DU.m,1000);near(TU.s*3600,1);near(TU.min*60,1)});
+ok('units: 1 mm/min converted to m/s',()=>{const v=1*DU.mm/TU.min/RU['m/s'];near(v,1/60000,1e-12)});
+console.log(n+' tests passed');
